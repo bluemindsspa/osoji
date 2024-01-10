@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="account_book_sale_action" model="ir.actions.report">
+            <field name="name">Libro de Compras y Ventas</field>
+            <field name="model">account.book.report</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">book_account.report_book_account_sale</field>
+            <field name="report_file">book_account.report_book_account_sale</field>
+            <field name="binding_model_id" ref="model_account_book_report"/>
+            <field name="binding_type">report</field>
+        </record>
+
+       <template id="report_book_sale">
+<!--            <t t-call="web.html_container">-->
+            <t t-call="web.external_layout">
+                <t t-set="o" t-value="o.with_context(lang=lang)" />
+
+                   <div class="page">
+                       <div class="container">
+                           <div>
+                               <div class="text-center">
+                                   <h2>Libro de <span t-field="o.type_operation"/></h2>
+                               </div>
+                                <span>Fecha de emisión: <span t-field="o.date"/></span><br/>
+                                <span>Periodo Tributario: <span t-field="o.tax_period"/></span>
+                           </div>
+
+                           <!-- DETALLES POR DOCUMENTO -->
+                           <div class="row" style="font-size: 9pt;">
+                               <table class="table table-sm table-condensed">
+                                   <thead>
+                                       <tr>
+                                           <th>Tipo de Documento</th>
+                                           <th>Numero</th>
+                                           <th>Fecha Emision</th>
+                                           <th>RUT</th>
+                                           <th>Entidad</th>
+                                           <th class="text-right">Afecto</th>
+                                           <th class="text-right">Excento</th>
+                                           <th class="text-right">IVA</th>
+                                           <t t-if="o.type_operation == 'sell'">
+                                               <th class="text-right">ANT 12%IVA</th>
+                                               <th class="text-right">Total</th>
+                                           </t>
+                                           <t t-else="">
+                                               <th class="text-right">Total</th>
+                                           </t>
+                                       </tr>
+                                   </thead>
+                                   <tbody>
+                                       <t t-if="o.type_operation == 'ticket'">
+                                           <t t-set="invoices" t-value="o.invoice_ids.filtered(lambda s: s.l10n_latam_document_type_id.code in ['34','39'] and s.journal_id.type == 'sale')"/>
+                                       </t>
+                                       <t t-else="">
+                                           <t t-if="o.type_operation == 'sell'">
+                                               <t t-set="invoices" t-value="o.invoice_ids.filtered(lambda s: s.l10n_latam_document_type_id.code in ['33', '34', '39','56', '61', '110', '112'] and s.journal_id.type == 'sale')"/>
+                                           </t>
+                                           <t t-if="o.type_operation == 'buy'">
+                                               <t t-set="invoices" t-value="o.invoice_ids.filtered(lambda s: s.l10n_latam_document_type_id.code in ['33', '34', '56', '61', '71'] and s.journal_id.type == 'purchase')"/>
+                                           </t>
+                                       </t>
+                                       <t t-set="amount_detail" t-value="0"/>
+                                       <t t-set="exempt_detail" t-value="0"/>
+                                       <t t-set="tax_detail" t-value="0"/>
+                                       <t t-set="total_12_detail" t-value="0"/>
+                                       <t t-set="total_detail" t-value="0"/>
+                                       <tr t-foreach="invoices" t-as="invoice">
+                                           <t t-if="invoice.l10n_latam_document_type_id.code in ['110', '112']">
+                                               <t t-set="total" t-value="o._get_totals_invoices_currency(invoice.invoice_line_ids)"/>
+                                           </t>
+                                           <t t-else="">
+                                               <t t-set="total" t-value="o._get_totals_invoices(invoice.invoice_line_ids)"/>
+                                           </t>
+                                           <td><span t-field="invoice.l10n_latam_document_type_id.name"/></td>
+                                           <td><span t-field="invoice.l10n_latam_document_number"/></td>
+                                           <td><span t-field="invoice.invoice_date"/></td>
+                                           <td><span t-field="invoice.partner_id.vat"/></td>
+                                           <td><span t-field="invoice.partner_id.name"/></td>
+                                           <td class="text-right"><span t-esc="total['amount']" t-options='{"widget": "monetary", "display_currency": invoice.currency_id}'/></td>
+                                           <td class="text-right"><span t-esc="total['exempt']" t-options='{"widget": "monetary", "display_currency": invoice.currency_id}'/></td>
+                                           <td class="text-right"><span t-esc="total['iva']" t-options='{"widget": "monetary", "display_currency": invoice.currency_id}'/></td>
+                                           <t t-if="o.type_operation == 'sell'">
+                                               <td class="text-right"><span t-esc="total['amount_12']" t-options='{"widget": "monetary", "display_currency": invoice.currency_id}'/></td>
+                                               <td class="text-right"><span t-esc="invoice.amount_total_signed" t-options='{"widget": "monetary", "display_currency": invoice.currency_id}'/></td>
+                                           </t>
+                                           <t t-else="">
+                                               <td class="text-right"><span t-esc="abs(invoice.amount_total_signed)" t-options='{"widget": "monetary", "display_currency": invoice.currency_id}'/></td>
+                                           </t>
+                                           <t t-set="amount_detail" t-value="amount_detail + total['amount']"/>
+                                           <t t-set="exempt_detail" t-value="exempt_detail + total['exempt']"/>
+                                           <t t-set="tax_detail" t-value="tax_detail + total['iva']"/>
+                                           <t t-set="total_12_detail" t-value="total_12_detail + total['amount_12']"/>
+                                           <t t-set="total_detail" t-value="total_detail + invoice.amount_total_signed"/>
+                                       </tr>
+                                       <tr>
+                                           <td colspan="5" class="text-right">Total General</td>
+                                           <td class="text-right"><span t-esc="'%.2f' % abs(amount_detail)"/></td>
+                                           <td class="text-right"><span t-esc="'%.2f' % abs(exempt_detail)"/></td>
+                                           <td class="text-right"><span t-esc="'%.2f' % abs(tax_detail)"/></td>
+                                           <t t-if="o.type_operation == 'sell'">
+                                               <td class="text-right"><span t-esc="'%.2f' % abs(total_12_detail)"/></td>
+                                               <td class="text-right"><span t-esc="'%.2f' % abs(total_detail)"/></td>
+                                           </t>
+                                           <t t-else="">
+                                               <td class="text-right"><span t-esc="'%.2f' % abs(total_detail)"/></td>
+                                           </t>
+
+                                       </tr>
+                                   </tbody>
+                               </table>
+                           </div>
+                           <div class="row">
+                               <div class="text-center">
+                                   <h4>Resumen</h4>
+                                   <br/>
+                               </div>
+                           </div>
+                           <div class="row" style="font-size: 9pt;">
+                               <table class="table table-sm table-condensed">
+                                   <thead>
+                                       <tr>
+                                           <th>Tipo de Documento</th>
+                                           <th>Cantidad de Documentos</th>
+                                           <th>Afecto</th>
+                                           <th>Exento</th>
+                                           <th>IVA</th>
+                                           <t t-if="o.type_operation == 'sell'">
+                                               <th class="text-right">ANT 12%IVA</th>
+                                               <th class="text-right">Total</th>
+                                           </t>
+                                           <t t-else="">
+                                               <th class="text-right">Total</th>
+                                           </t>
+                                       </tr>
+                                   </thead>
+                                   <tbody>
+                                       <t t-set="document_class" t-value="invoices.mapped('l10n_latam_document_type_id')"/>
+                                        <!-- MONTOS GLOBALES -->
+                                       <t t-set="quantity_global" t-value="0"/>
+                                       <t t-set="amount_global" t-value="0"/>
+                                       <t t-set="exempt_global" t-value="0"/>
+                                       <t t-set="tax_global" t-value="0"/>
+                                       <t t-set="total_12_global" t-value="0"/>
+                                       <t t-set="total_global" t-value="0"/>
+                                       <tr t-foreach="document_class" t-as="document">
+                                           <t t-set="invoices" t-value="o.invoice_ids.filtered(lambda s: s.l10n_latam_document_type_id.name == document.name)"/>
+                                           <!-- MONTOS GENERALES POR DOCUMENTO -->
+                                           <t t-set="amount_general" t-value="0"/>
+                                           <t t-set="exempt_general" t-value="0"/>
+                                           <t t-set="tax_general" t-value="0"/>
+                                           <t t-set="total_12_general" t-value="0"/>
+                                           <t t-set="total_general" t-value="0"/>
+                                           <t t-if="o.type_operation == 'ticket'">
+                                               <t t-foreach="invoices" t-as="invoice">
+                                                   <t t-set="total" t-value="o._get_totals_invoices(invoice.invoice_line_ids)"/>
+                                                   <t t-set="amount_general" t-value="amount_general + total['amount']"/>
+                                                   <t t-set="exempt_general" t-value="exempt_general + total['exempt']"/>
+                                                   <t t-set="tax_general" t-value="tax_general + invoice.amount_tax"/>
+                                                   <t t-set="total_general" t-value="total_general + abs(invoice.amount_total_signed)"/>
+                                               </t>
+                                               <td><span t-esc="document.name"/></td>
+                                               <td class="text-right"><span t-esc="len(invoices)"/></td>
+                                               <td class="text-right"><span t-esc="amount_general"/></td>
+                                               <td class="text-right"><span t-esc="exempt_general"/></td>
+                                               <td class="text-right"><span t-esc="tax_general"/></td>
+                                               <td class="text-right"><span t-esc="total_general"/></td>
+                                               <t t-set="quantity_global" t-value="quantity_global + len(invoices)"/>
+                                               <t t-set="amount_global" t-value="amount_global + amount_general"/>
+                                               <t t-set="exempt_global" t-value="exempt_global + exempt_general"/>
+                                               <t t-set="tax_global" t-value="tax_global + tax_general"/>
+                                               <t t-set="total_global" t-value="total_global + total_general"/>
+                                           </t>
+                                           <t t-if="o.type_operation == 'sell'">
+                                               <t t-foreach="invoices" t-as="invoice">
+                                                   <t t-if="document.code in ['110', '112']">
+                                                       <t t-set="total" t-value="o._get_totals_invoices_currency(invoice.invoice_line_ids)"/>
+                                                   </t>
+                                                   <t t-else="">
+                                                       <t t-set="total" t-value="o._get_totals_invoices(invoice.invoice_line_ids)"/>
+                                                   </t>
+                                                   <t t-if="document.code in ['61', '112']">
+                                                       <t t-set="amount_general" t-value="amount_general - total['amount']"/>
+                                                       <t t-set="exempt_general" t-value="exempt_general - total['exempt']"/>
+                                                       <t t-set="tax_general" t-value="tax_general - invoice.amount_tax"/>
+                                                       <t t-set="total_12_general" t-value="total_12_general - total['amount_12']"/>
+                                                       <t t-set="total_general" t-value="total_general - abs(invoice.amount_total_signed)"/>
+                                                   </t>
+                                                   <t t-else="">
+                                                       <t t-set="amount_general" t-value="amount_general + total['amount']"/>
+                                                       <t t-set="exempt_general" t-value="exempt_general + total['exempt']"/>
+                                                       <t t-set="tax_general" t-value="tax_general + invoice.amount_tax"/>
+                                                       <t t-set="total_12_general" t-value="total_12_general + total['amount_12']"/>
+                                                       <t t-set="total_general" t-value="total_general + abs(invoice.amount_total_signed)"/>
+                                                   </t>
+                                               </t>
+                                               <td><span t-esc="document.name"/></td>
+                                               <td class="text-right"><span t-esc="len(invoices)"/></td>
+                                               <td class="text-right"><span t-esc="amount_general"/></td>
+                                               <td class="text-right"><span t-esc="exempt_general"/></td>
+                                               <td class="text-right"><span t-esc="tax_general"/></td>
+                                               <td class="text-right"><span t-esc="total_12_general"/></td>
+                                               <td class="text-right"><span t-esc="total_general"/></td>
+                                               <t t-set="quantity_global" t-value="quantity_global + len(invoices)"/>
+                                               <t t-set="amount_global" t-value="amount_global + amount_general"/>
+                                               <t t-set="exempt_global" t-value="exempt_global + exempt_general"/>
+                                               <t t-set="tax_global" t-value="tax_global + tax_general"/>
+                                               <t t-set="total_12_global" t-value="total_12_global + total_12_general"/>
+                                               <t t-set="total_global" t-value="total_global + total_general"/>
+                                           </t>
+                                           <t t-else="">
+                                               <t t-foreach="invoices" t-as="invoice">
+                                                   <t t-if="invoice.l10n_latam_document_type_id.code in ['110', '112']">
+                                                       <t t-set="total" t-value="o._get_totals_invoices_currency(invoice.invoice_line_ids)"/>
+                                                   </t>
+                                                   <t t-else="">
+                                                       <t t-set="total" t-value="o._get_totals_invoices(invoice.invoice_line_ids)"/>
+                                                   </t>
+                                                   <t t-if="document.code in ['61', '112']">
+                                                       <t t-set="amount_general" t-value="amount_general - total['amount']"/>
+                                                       <t t-set="exempt_general" t-value="exempt_general - total['exempt']"/>
+                                                       <t t-set="tax_general" t-value="tax_general - invoice.amount_tax"/>
+                                                       <t t-set="total_12_general" t-value="total_12_general - total['amount_12']"/>
+                                                       <t t-set="total_general" t-value="total_general - abs(invoice.amount_total_signed)"/>
+                                                   </t>
+                                                   <t t-else="">
+                                                       <t t-set="amount_general" t-value="amount_general + total['amount']"/>
+                                                       <t t-set="exempt_general" t-value="exempt_general + total['exempt']"/>
+                                                       <t t-set="tax_general" t-value="tax_general + invoice.amount_tax"/>
+                                                       <t t-set="total_12_general" t-value="total_12_general + total['amount_12']"/>
+                                                       <t t-set="total_general" t-value="total_general + abs(invoice.amount_total_signed)"/>
+                                                   </t>
+                                               </t>
+                                               <td><span t-esc="document.name"/></td>
+                                               <td class="text-right"><span t-esc="len(invoices)"/></td>
+                                               <td class="text-right"><span t-esc="amount_general"/></td>
+                                               <td class="text-right"><span t-esc="exempt_general"/></td>
+                                               <td class="text-right"><span t-esc="tax_general"/></td>
+                                               <td class="text-right"><span t-esc="total_general"/></td>
+                                               <t t-set="quantity_global" t-value="quantity_global + len(invoices)"/>
+                                               <t t-set="amount_global" t-value="amount_global + amount_general"/>
+                                               <t t-set="exempt_global" t-value="exempt_global + exempt_general"/>
+                                               <t t-set="tax_global" t-value="tax_global + tax_general"/>
+                                               <t t-set="total_global" t-value="total_global + total_general"/>
+                                           </t>
+                                       </tr>
+                                       <tr>
+                                           <td class="text-right">Total General</td>
+                                           <td class="text-right"><span t-esc="quantity_global"/></td>
+                                           <td class="text-right"><span t-esc="amount_global"/></td>
+                                           <td class="text-right"><span t-esc="exempt_global"/></td>
+                                           <td class="text-right"><span t-esc="tax_global"/></td>
+                                           <t t-if="o.type_operation == 'sell'">
+                                               <td class="text-right"><span t-esc="total_12_global"/></td>
+                                               <td class="text-right"><span t-esc="total_global"/></td>
+                                           </t>
+                                           <t t-else="">
+                                               <td class="text-right"><span t-esc="total_global"/></td>
+                                           </t>
+                                       </tr>
+                                   </tbody>
+                               </table>
+                           </div>
+                       </div>
+
+                   </div>
+               </t>
+<!--           </t>-->
+       </template>
+
+        <template id="report_book_account_sale">
+            <t t-call="web.html_container">
+                <t t-foreach="docs" t-as="o">
+                    <t t-call="book_account.report_book_sale" t-lang="lang"/>
+                </t>
+            </t>
+        </template>
+
+    </data>
+</odoo>

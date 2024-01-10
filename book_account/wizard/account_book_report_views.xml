@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <data>
+        <record id="account_book_report_view_form" model="ir.ui.view">
+            <field name="name">account.book.report.view.form</field>
+            <field name="model">account.book.report</field>
+            <field name="arch" type="xml">
+                <form string="Libros Cierre Mes">
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" readonly="1"/>
+
+                            </h1>
+                        </div>
+                        <group>
+                            <field name="type_operation"/>
+                            <field name="date"/>
+                            <field name="tax_period"/>
+                            <field name="company_id" options="{'no_create': True}" groups="base.group_multi_company"/>
+                        </group>
+                        <field name="invoice_ids" invisible="0"/>
+                    </sheet>
+                     <footer>
+                         <button name="export_report_xls" string="Generar Excel" type="object" class="btn btn-primary"/>
+                         <button name="print_report" string="Imprimir PDF" type="object" class="btn btn-primary"/>
+                         <button string="Cancel" class="btn btn-default" special="cancel" />
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_account_book_report" model="ir.actions.act_window">
+            <field name="name">Libros Cierre de Mes</field>
+            <field name="res_model">account.book.report</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="account_book_report_view_form"/>
+            <field name="target">new</field>
+        </record>
+
+        <!-- This Menu Item Must have a parent -->
+        <menuitem id="menu_categ_move_books_form" name="Libros Cierre de Mes" parent="account.menu_finance_reports"/>
+
+        <menuitem id="menu_action_move_books_form" name="Libros Compra y Venta" parent="menu_categ_move_books_form" action="action_account_book_report"/>
+    </data>
+</odoo>
